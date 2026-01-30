@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-background text-gray-100 antialiased;
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-background;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-border rounded-full hover:bg-gray-600 transition-colors;
+}
+
+/* Glassmorphism Utility */
+/* Glassmorphism Utility */
+.glass {
+  @apply bg-surface/60 backdrop-blur-md border border-border;
+}
+
+/* Leaflet Dark Mode & Custom Popups */
+.leaflet-container {
+  @apply rounded-3xl !bg-[#0a0a0a];
+}
+
+.leaflet-popup-content-wrapper {
+  @apply !bg-[#1a1a1a] !text-white !rounded-2xl border border-white/10;
+}
+
+.leaflet-popup-tip {
+  @apply !bg-[#1a1a1a];
+}
+
+.custom-div-icon {
+  background: transparent;
+  border: none;
+}
