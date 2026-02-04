@@ -22,6 +22,9 @@ init_mqtt(app)
 app.include_router(device_router)
 app.include_router(command_router)
 
+from prometheus_fastapi_instrumentator import Instrumentator
+Instrumentator().instrument(app).expose(app)
+
 @app.get("/health")
 def health_check():
     return {"status": "ok", "service": "device-management"}

@@ -33,7 +33,11 @@ app = FastAPI(
 )
 
 # Connect Router
+
 app.include_router(monitoring_router)
+
+from prometheus_fastapi_instrumentator import Instrumentator
+Instrumentator().instrument(app).expose(app)
 
 # Mount Socket.IO to /socket.io
 app.mount("/", socket_manager.app)

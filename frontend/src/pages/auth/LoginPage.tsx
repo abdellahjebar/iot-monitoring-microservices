@@ -1,27 +1,34 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import { Layout, Mail, Lock, Loader2, AlertCircle } from 'lucide-react';
-import { motion } from 'framer-motion';
-import axios from 'axios';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useAuth } from '@/context/AuthContext';
+import { loginSchema, type LoginFormValues } from '@/types/auth';
+import api from '@/services/api';
+import { cn } from '@/lib/utils';
+import { Mail, Lock, Loader2, ShieldCheck, ArrowRight } from 'lucide-react';
 
 export const LoginPage = () => {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
-    const [isSubmitting, setIsSubmitting] = useState(false);
-
-    const { login } = useAuth();
     const navigate = useNavigate();
+    const { login } = useAuth();
+    const [serverError, setServerError] = useState<string | null>(null);
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError('');
-        setIsSubmitting(true);
+    const {
+        register,
+        handleSubmit,
+        formState: { errors, isSubmitting },
+    } = useForm<LoginFormValues>({
+        resolver: zodResolver(loginSchema) as any,
+        defaultValues: {
+            email: '',
+            password: '',
+        }
+    });
 
+    const onSubmit = async (data: LoginFormValues) => {
+        setServerError(null);
         try {
-            // Calling our Unified Gateway (Port 80)
-            const response = await axios.post('/auth/auth', { email, password });
+            const response = await api.post('/auth/auth', data);
             const { token, payload } = response.data;
 
             login(token, {
@@ -31,92 +38,120 @@ export const LoginPage = () => {
 
             navigate('/');
         } catch (err: any) {
-            setError(err.response?.data?.detail || 'Authentication failed. Please check your credentials.');
-        } finally {
-            setIsSubmitting(false);
+            setServerError(
+                err.response?.data?.detail ||
+                'Access denied. Please verify your credentials.'
+            );
         }
     };
 
     return (
-        <div className="min-h-screen bg-background flex items-center justify-center p-6 relative overflow-hidden">
-            {/* Background Decorative Elements */}
-            <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/10 blur-[120px] rounded-full" />
-            <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-secondary/10 blur-[120px] rounded-full" />
+        <div className="min-h-screen bg-bg-0 flex items-center justify-center p-6 relative overflow-hidden">
+            {/* Ambient Background */}
+            <div className="absolute inset-0 overflow-hidden">
+                <div className="absolute top-[-30%] left-[-20%] w-[70%] h-[70%] bg-cyan/10 blur-[120px] rounded-full" />
+                <div className="absolute bottom-[-30%] right-[-20%] w-[70%] h-[70%] bg-cyan/5 blur-[120px] rounded-full" />
+            </div>
 
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="w-full max-w-md glass p-10 rounded-3xl border border-white/5 shadow-2xl relative z-10"
-            >
-                <div className="flex flex-col items-center mb-10">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-lg shadow-primary/20 mb-6">
-                        <Layout className="w-10 h-10 text-black" />
-                    </div>
-                    <h1 className="text-3xl font-black text-white tracking-tight">Access Hub</h1>
-                    <p className="text-neutral-500 mt-2 text-center">IoT Fleet Management Platform</p>
-                </div>
-
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest ml-1">Work Email</label>
-                        <div className="relative group">
-                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500 group-focus-within:text-primary transition-colors" />
-                            <input
-                                type="email"
-                                required
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="name@company.com"
-                                className="w-full bg-white/5 border border-white/10 rounded-xl py-4 pl-12 pr-4 outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/10 transition-all text-white"
-                            />
+            {/* Login Card */}
+            <div className="w-full max-w-md z-10 animate-fade-in">
+                <div className="card bg-bg-1/80 backdrop-blur-xl border-border-subtle p-8 md:p-10">
+                    {/* Header */}
+                    <div className="flex flex-col items-center mb-8 text-center">
+                        <div className="w-16 h-16 rounded-2xl bg-cyan-soft border border-cyan/20 flex items-center justify-center mb-6">
+                            <ShieldCheck className="w-8 h-8 text-cyan" />
                         </div>
+                        <h1 className="text-h1 text-text-primary mb-2">Fleet Console</h1>
+                        <p className="text-body text-text-secondary">
+                            Secure access to IoT monitoring system
+                        </p>
                     </div>
 
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest ml-1">Identity Secret</label>
-                        <div className="relative group">
-                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500 group-focus-within:text-primary transition-colors" />
-                            <input
-                                type="password"
-                                required
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                placeholder="••••••••"
-                                className="w-full bg-white/5 border border-white/10 rounded-xl py-4 pl-12 pr-4 outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/10 transition-all text-white"
-                            />
+                    {/* Form */}
+                    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+                        {/* Email Field */}
+                        <div>
+                            <label className="label-uppercase mb-2 block">Email</label>
+                            <div className="relative group">
+                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary group-focus-within:text-cyan transition-colors" />
+                                <input
+                                    {...register('email')}
+                                    type="email"
+                                    placeholder="operator@nexus.io"
+                                    className={cn(
+                                        "w-full h-12 pl-11 pr-4 rounded-lg bg-bg-2 border border-border-subtle text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-cyan transition-colors",
+                                        errors.email && "border-error focus:border-error"
+                                    )}
+                                />
+                            </div>
+                            {errors.email && (
+                                <p className="text-body-sm text-error mt-2">{errors.email.message}</p>
+                            )}
                         </div>
-                    </div>
 
-                    {error && (
-                        <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-400 text-sm"
-                        >
-                            <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                            {error}
-                        </motion.div>
-                    )}
+                        {/* Password Field */}
+                        <div>
+                            <label className="label-uppercase mb-2 block">Password</label>
+                            <div className="relative group">
+                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary group-focus-within:text-cyan transition-colors" />
+                                <input
+                                    {...register('password')}
+                                    type="password"
+                                    placeholder="••••••••"
+                                    className={cn(
+                                        "w-full h-12 pl-11 pr-4 rounded-lg bg-bg-2 border border-border-subtle text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-cyan transition-colors",
+                                        errors.password && "border-error focus:border-error"
+                                    )}
+                                />
+                            </div>
+                            {errors.password && (
+                                <p className="text-body-sm text-error mt-2">{errors.password.message}</p>
+                            )}
+                        </div>
 
-                    <button
-                        type="submit"
-                        disabled={isSubmitting}
-                        className="w-full bg-gradient-to-r from-primary to-secondary hover:brightness-110 disabled:grayscale disabled:opacity-50 text-black font-black py-4 rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-3 uppercase tracking-widest text-sm"
-                    >
-                        {isSubmitting ? (
-                            <Loader2 className="w-5 h-5 animate-spin" />
-                        ) : (
-                            'Initialize Session'
+                        {/* Server Error */}
+                        {serverError && (
+                            <div className="p-3 bg-error-soft border border-error/20 rounded-lg text-error text-body-sm text-center animate-fade-in">
+                                {serverError}
+                            </div>
                         )}
-                    </button>
-                </form>
 
-                <div className="mt-8 pt-8 border-t border-white/5 text-center">
-                    <p className="text-neutral-500 text-sm">
-                        Contact system administrator to request an account.
-                    </p>
+                        {/* Submit Button */}
+                        <button
+                            type="submit"
+                            disabled={isSubmitting}
+                            className="btn-primary w-full h-12 justify-center"
+                        >
+                            {isSubmitting ? (
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                            ) : (
+                                <>
+                                    <span>Sign In</span>
+                                    <ArrowRight className="w-4 h-4" />
+                                </>
+                            )}
+                        </button>
+                    </form>
+
+                    {/* Footer */}
+                    <div className="mt-8 pt-6 border-t border-border-subtle text-center">
+                        <div className="flex items-center justify-center gap-2 mb-2">
+                            <span className="status-dot status-dot-online" />
+                            <span className="text-caption font-mono text-text-tertiary">
+                                GATEWAY_ACTIVE v2.4.0
+                            </span>
+                        </div>
+                        <p className="text-caption text-text-tertiary">
+                            Secured by enterprise-grade authentication
+                        </p>
+                    </div>
                 </div>
-            </motion.div>
+
+                {/* Bottom Text */}
+                <p className="text-center mt-6 text-caption text-text-tertiary">
+                    Authorized personnel only
+                </p>
+            </div>
         </div>
     );
 };

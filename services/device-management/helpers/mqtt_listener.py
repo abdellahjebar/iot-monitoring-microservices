@@ -33,19 +33,7 @@ async def message(client, topic, payload, qos, properties):
         data = json.loads(payload.decode())
         logger.info(f"📥 Received MQTT: {topic} -> {data}")
         
-        # Forward to RabbitMQ (Gateway Pattern)
-        # Using the same Routing Key logic as if it came via HTTP
-        # topic: device/sim_device_001/telemetry
         
-        # We want to publish to RabbitMQ with routing key 'device.telemetry'
-        # or maybe 'device.{device_id}.telemetry'?
-        # The Consumer listens to 'device.#'.
-        
-        # Let's clean the topic to routing key format
-        # device/001/telemetry -> device.telemetry (or device.001.telemetry)
-        
-        # Ideally, we include device_id in the payload (Simulator does this).
-        # So routing key can be 'device.telemetry'.
         
         publish_event("device.telemetry", data)
         logger.info("➡️ Forwarded to RabbitMQ")

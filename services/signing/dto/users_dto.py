@@ -3,7 +3,7 @@ from datetime import datetime
 
 class UserRequest(BaseModel):
     email:EmailStr
-    password:str=Field(min_length=6)
+    password:str=Field(min_length=5)
 
 class UserResponse(BaseModel):
     email:EmailStr

@@ -44,7 +44,9 @@ async def send_command(
     if mqtt_client is None:
         raise HTTPException(status_code=500, detail="MQTT broker connectivity error")
         
-    mqtt_client.publish(topic, json.dumps(payload))
+    await mqtt_client.publish(topic, json.dumps(payload))
+    from helpers.config import logger
+    logger.info(f"📤 Published command {command.action} to {topic}")
     
     return {
         "status": "success", 

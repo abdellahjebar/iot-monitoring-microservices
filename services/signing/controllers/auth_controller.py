@@ -84,7 +84,7 @@ def verify_token(tokenRequest:TokenRequest, session=Depends(session_factory)):
     
     payload=decode_token(token=tokenRequest.token)
     if not payload :
-        raise HTTPException(status_code=404,detail="Invalid token")
+        raise HTTPException(status_code=401,detail="Invalid or expired token")
     return TokenResponse(token=tokenRequest.token,payload=payload)
 
 @router.post("/logout")

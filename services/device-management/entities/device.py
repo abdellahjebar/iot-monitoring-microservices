@@ -16,6 +16,7 @@ class Device(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(100), nullable=False)
     type = Column(String(50), nullable=False) # e.g., "sensor", "actuator"
+    location = Column(String(100), nullable=True, default="Casablanca")
     status = Column(String(20), default=DeviceStatus.OFFLINE.value)
     owner_id = Column(String(100), nullable=False) # User email or ID from token
     
@@ -27,6 +28,7 @@ class Device(Base):
             "id": str(self.id),
             "name": self.name,
             "type": self.type,
+            "location": self.location,
             "status": self.status,
             "owner_id": self.owner_id,
             "created_at": self.created_at.isoformat(),

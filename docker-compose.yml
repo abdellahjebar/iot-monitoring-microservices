@@ -7,6 +7,7 @@ services:
     environment:
       - SERVER_DB=db
       - NAME_DB=${NAME_DB-db_auth}
+      - EXPIRE_TIME=1440
     ports:
       - "8000:8000"
     volumes:
@@ -16,7 +17,7 @@ services:
     depends_on:
       - db
       - redis
-    command: [ "sh", "-c", "mkdir -p /app/logs && chmod 777 /app/logs && uvicorn main:app --host 0.0.0.0 --port 8000" ]
+    command: [ "sh", "-c", "mkdir -p /app/logs && uvicorn main:app --host 0.0.0.0 --port 8000" ]
     restart: on-failure
   simulator:
     build:
@@ -54,6 +55,7 @@ services:
       - net-auth
     volumes:
       - ./services/signing/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - postgres_data:/var/lib/postgresql/data
   redis:
     image: redis:alpine
     container_name: redis-cache
@@ -64,11 +66,14 @@ services:
   rabbitmq:
     image: rabbitmq:3-management
     container_name: rabbitmq
+    environment:
+      - RABBITMQ_MQTT_DEFAULT_EXCHANGE=iot_events
     ports:
       - 5672:5672
       - 15672:15672
     networks:
       - net-auth
+    command: [ "sh", "-c", "rabbitmq-plugins enable rabbitmq_mqtt && rabbitmq-server" ]
   device-management:
     build:
       context: ./services/device-management
@@ -85,7 +90,9 @@ services:
     depends_on:
       - db
       - rabbitmq
-    command: [ "sh", "-c", "mkdir -p /app/logs && chmod 777 /app/logs && uvicorn main:app --host 0.0.0.0 --port 8001" ]
+    volumes:
+      - ./services/device-management:/app
+    command: [ "sh", "-c", "mkdir -p /app/logs && chmod 777 /app/logs && uvicorn main:app --host 0.0.0.0 --port 8001 --reload" ]
     restart: on-failure
   mongo:
     image: mongo:latest
@@ -114,11 +121,16 @@ services:
     depends_on:
       - mongo
       - rabbitmq
+    volumes:
+      - ./services/monitoring:/app
+    command: [ "sh", "-c", "uvicorn main:app --host 0.0.0.0 --port 8002 --reload" ]
     restart: on-failure
 
   frontend:
     build:
       context: ./frontend
+      args:
+        - VITE_GATEWAY_URL=/
     container_name: dashboard-ui
     # ports:
     #   - "3000:80"
@@ -145,8 +157,68 @@ services:
       - net-auth
     restart: always
 
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    volumes:
+      - ./services/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - net-auth
+    restart: always
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./services/grafana/provisioning:/etc/grafana/provisioning
+    ports:
+      - "3001:3000"
+    networks:
+      - net-auth
+    depends_on:
+      - prometheus
+    restart: always
+
+  prediction-service:
+    build:
+      context: ./services/prediction-service
+    container_name: prediction-ms
+    ports:
+      - "8003:8003"
+    networks:
+      - net-auth
+    restart: on-failure
+
+  sonarqube:
+    image: sonarqube:community
+    container_name: sonarqube
+    ports:
+      - "9000:9000"
+    environment:
+      - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_logs:/opt/sonarqube/logs
+      - sonarqube_extensions:/opt/sonarqube/extensions
+    networks:
+      - net-auth
+    restart: unless-stopped
+
 networks:
   net-auth:
     driver: bridge
 volumes:
   mongo_data:
+  postgres_data:
+  prometheus_data:
+  grafana_data:
+  sonarqube_data:
+  sonarqube_logs:
+  sonarqube_extensions:

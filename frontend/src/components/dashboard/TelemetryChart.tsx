@@ -1,4 +1,5 @@
 import type { FC } from 'react';
+import { cn } from '@/lib/utils';
 import {
     XAxis,
     YAxis,
@@ -16,7 +17,7 @@ interface TelemetryChartProps {
 
 export const TelemetryChart: FC<TelemetryChartProps> = ({ data, title }) => {
     return (
-        <div className="glass p-6 rounded-2xl h-[350px]">
+        <div className={cn("glass p-6 rounded-2xl h-[400px] border border-white/5", "bg-black/20 backdrop-blur-3xl")}>
             <h3 className="text-lg font-bold text-white mb-6 uppercase tracking-wider">{title}</h3>
             <ResponsiveContainer width="100%" height="85%">
                 <AreaChart data={data}>

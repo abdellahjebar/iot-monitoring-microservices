@@ -1,0 +1,17 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: 'iot-simulator'
+    static_configs:
+      - targets: ['iot-simulator:9090']
+
+  - job_name: 'device-management'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['device-management:8001']
+
+  - job_name: 'monitoring'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['monitoring:8002']

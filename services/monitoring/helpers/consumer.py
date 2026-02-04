@@ -4,6 +4,7 @@ import json
 import logging
 import asyncio
 import functools
+import requests
 from typing import Final
 from pymongo import MongoClient
 from datetime import datetime
@@ -15,6 +16,7 @@ RABBITMQ_HOST: Final[str] = os.getenv('RABBITMQ_HOST', 'rabbitmq')
 MONGO_URI = f"mongodb://{os.getenv('MONGO_USER', 'admin')}:{os.getenv('MONGO_PASSWORD', '1234')}@{os.getenv('MONGO_HOST', 'mongo')}:{os.getenv('MONGO_PORT', '27017')}"
 EXCHANGE_NAME = 'iot_events'
 QUEUE_NAME = 'monitoring_queue'
+PREDICTION_SERVICE_URL = os.getenv('PREDICTION_SERVICE_URL', 'http://prediction-ms:8003/predict/anomaly')
 
 # Synchronous Client for the background thread
 mongo_client = MongoClient(MONGO_URI)
@@ -28,6 +30,7 @@ def process_message(ch, method, properties, body, loop):
     try:
         message = json.loads(body)
         routing_key = method.routing_key
+        print(f"DEBUG: Received event '{routing_key}'", flush=True)
         logger.info(f"Received event '{routing_key}'")
         
         # Determine Collection
@@ -41,20 +44,41 @@ def process_message(ch, method, properties, body, loop):
         }
         
         # ---------------------------------------------------------
-        # 🧠 BUSINESS LOGIC / ANOMALY DETECTION
+        # 🧠 BUSINESS LOGIC / AI ANOMALY DETECTION
         # ---------------------------------------------------------
         payload = message
         
-        # 1. Check for High Temp
+        # 1. AI Anomaly Detection (The ML Link 🧠)
+        if 'telemetry' in payload and 'temperature' in payload['telemetry']:
+            try:
+                pred_data = {
+                    "temperature": payload['telemetry'].get('temperature', 25),
+                    "humidity": payload['telemetry'].get('humidity', 50),
+                    "cpu_load": payload.get('system', {}).get('cpu_load', 0)
+                }
+                pred_resp = requests.post(PREDICTION_SERVICE_URL, json=pred_data, timeout=2)
+                if pred_resp.status_code == 200:
+                    ml_result = pred_resp.json()
+                    payload['is_anomaly'] = ml_result.get('is_anomaly', False)
+                    payload['anomaly_score'] = ml_result.get('anomaly_score', 0)
+                    payload['risk_level'] = ml_result.get('risk_level', 'LOW')
+                    
+                    if payload['is_anomaly']:
+                        logger.warning(f"🚨 AI ALERT: Anomaly detected on {payload.get('device_id')}! Risk: {payload['risk_level']}")
+                        document['ml_alert'] = f"AI Anomaly ({payload['risk_level']})"
+            except Exception as ml_err:
+                logger.error(f"ML Prediction failed: {ml_err}")
+
+        # 2. Check for High Temp (Legacy Rule)
         if 'telemetry' in payload and payload['telemetry'].get('temperature', 0) > 80:
              logger.warning(f"🔥 CRITICAL ALERT: Device {payload.get('device_id')} overheating!")
              document['alert'] = "Overheating"
              
-        # 2. Check for Offline
+        # 3. Check for Offline
         if payload.get('status') == 'OFFLINE':
              logger.warning(f"⚠️ ALERT: Device {payload.get('device_id')} went OFFLINE")
         
-        # 3. Real-Time Push (The Bridge 🌉)
+        # 4. Real-Time Push (The Bridge 🌉)
         try:
             # Prepare the Async Task
             # We emit to the room named after the device_id so not everyone gets spam
@@ -88,6 +112,7 @@ def start_consumer(loop):
     try:
         connection = pika.BlockingConnection(pika.ConnectionParameters(host=RABBITMQ_HOST))
         channel = connection.channel()
+        print("DEBUG: CONSUMER STARTED", flush=True)
 
         channel.exchange_declare(exchange=EXCHANGE_NAME, exchange_type='topic', durable=True)
         result = channel.queue_declare(queue=QUEUE_NAME, exclusive=False, durable=True)

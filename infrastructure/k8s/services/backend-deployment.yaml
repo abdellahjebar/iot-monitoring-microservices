@@ -7,6 +7,7 @@ metadata:
   labels:
     io.kompose.service: backend
   name: backend
+  namespace: iot-monitoring
 spec:
   replicas: 1
   selector:
@@ -31,7 +32,16 @@ spec:
               value: db_auth
             - name: SERVER_DB
               value: db
-          image: localhost:32000/identity:1.1
+            - name: USER_DB
+              value: admin
+            - name: PASSWORD_DB
+              value: "1234"
+            - name: REDIS_HOST
+              value: redis
+            - name: REDIS_PORT
+              value: "6379"
+          image: iot-monitoring-microservices-backend:latest
+          imagePullPolicy: Never
           name: auth-ms
           ports:
             - containerPort: 8000

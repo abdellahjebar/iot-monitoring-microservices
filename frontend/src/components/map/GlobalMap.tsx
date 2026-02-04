@@ -43,10 +43,14 @@ interface GlobalMapProps {
 }
 
 export const GlobalMap: FC<GlobalMapProps> = ({ devices, onDeviceSelect }) => {
-    const activeDevices = Object.entries(devices).map(([id, history]) => ({
-        id,
-        latest: history[history.length - 1]
-    }));
+    const activeDevices = Object.entries(devices)
+        .map(([id, history]) => ({
+            id,
+            latest: history && history.length > 0 ? history[history.length - 1] : null
+        }))
+        .filter((device): device is { id: string; latest: TelemetryReading } =>
+            device.latest !== null && typeof device.latest.lat === 'number' && typeof device.latest.lon === 'number'
+        );
 
     return (
         <motion.div

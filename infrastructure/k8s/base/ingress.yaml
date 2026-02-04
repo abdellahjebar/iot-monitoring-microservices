@@ -1,0 +1,59 @@
+# Nginx Ingress Controller Configuration
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: iot-monitoring-ingress
+  namespace: iot-monitoring
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    # WebSocket support for Socket.IO
+    nginx.ingress.kubernetes.io/websocket-services: "monitoring"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: iot.local
+    http:
+      paths:
+      # Frontend
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend
+            port:
+              number: 80
+      # Auth API
+      - path: /auth
+        pathType: Prefix
+        backend:
+          service:
+            name: backend
+            port:
+              number: 8000
+      # Device Management API
+      - path: /devices
+        pathType: Prefix
+        backend:
+          service:
+            name: device-management
+            port:
+              number: 8001
+      # Monitoring API
+      - path: /monitoring
+        pathType: Prefix
+        backend:
+          service:
+            name: monitoring
+            port:
+              number: 8002
+      # Socket.IO for real-time
+      - path: /socket.io
+        pathType: Prefix
+        backend:
+          service:
+            name: monitoring
+            port:
+              number: 8002

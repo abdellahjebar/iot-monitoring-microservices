@@ -1,5 +1,7 @@
+pika
 paho-mqtt
 random2
 requests
 psutil
 python-dotenv
+prometheus_client

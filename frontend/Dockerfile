@@ -3,6 +3,9 @@ FROM node:20-alpine as build
 
 WORKDIR /app
 
+ARG VITE_GATEWAY_URL=/
+ENV VITE_GATEWAY_URL=$VITE_GATEWAY_URL
+
 COPY package*.json ./
 RUN npm install --legacy-peer-deps
 

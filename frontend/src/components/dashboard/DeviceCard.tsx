@@ -1,17 +1,20 @@
-import { useState, type FC } from 'react';
-import { Thermometer, Droplets, AlertTriangle, Snowflake, Fan } from 'lucide-react';
-import { clsx } from 'clsx';
-import { motion, AnimatePresence } from 'framer-motion';
-import { deviceService } from '../../services/api';
+import { type FC } from 'react';
+import { Thermometer, Droplets, Cpu, BatteryMedium, AlertTriangle, Fan } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface DeviceCardProps {
     deviceId: string;
     status: string;
     temperature: number;
     humidity: number;
+    cpuLoad?: number;
+    batteryLevel?: number;
     coolingActive: boolean;
     alert?: string;
     lastUpdate: string;
+    selected?: boolean;
+    onClick?: () => void;
+    onToggleCooling?: () => void;
 }
 
 export const DeviceCard: FC<DeviceCardProps> = ({
@@ -19,150 +22,140 @@ export const DeviceCard: FC<DeviceCardProps> = ({
     status,
     temperature,
     humidity,
+    cpuLoad,
+    batteryLevel,
     coolingActive,
     alert,
     lastUpdate,
+    selected = false,
+    onClick,
+    onToggleCooling,
 }) => {
     const isOnline = status === 'ONLINE';
     const hasAlert = !!alert;
-    const [isCommanding, setIsCommanding] = useState(false);
 
-    const toggleCooling = async (e: React.MouseEvent) => {
-        e.stopPropagation();
-        setIsCommanding(true);
-        try {
-            const nextAction = coolingActive ? "COOLING_OFF" : "COOLING_ON";
-            await deviceService.sendCommand(deviceId, nextAction);
-        } catch (err) {
-            console.error("Failed to send command:", err);
-        } finally {
-            setIsCommanding(false);
-        }
+    const statusStyles: Record<string, string> = {
+        ONLINE: 'bg-success-soft text-success',
+        OFFLINE: 'bg-error-soft text-error',
+        MAINTENANCE: 'bg-warning-soft text-warning',
     };
 
+    const statusClass = statusStyles[status] || 'bg-bg-3 text-text-secondary';
+
     return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            whileHover={{ y: -5 }}
-            className={clsx(
-                "glass p-5 rounded-3xl transition-all duration-500 relative overflow-hidden group border border-white/5",
-                hasAlert && !coolingActive && "border-red-500/30 shadow-2xl shadow-red-500/10",
-                coolingActive && "border-cyan-400/40 shadow-2xl shadow-cyan-500/20"
+        <div
+            onClick={onClick}
+            className={cn(
+                "card cursor-pointer transition-all duration-200",
+                selected && "border-cyan ring-2 ring-cyan/20",
+                hasAlert && !selected && "border-error/50",
+                coolingActive && !selected && "border-cyan/30"
             )}
         >
-            {/* Animated Background Frost */}
-            <AnimatePresence>
-                {coolingActive && (
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-transparent pointer-events-none"
-                    >
-                        <motion.div
-                            animate={{
-                                rotate: 360,
-                                scale: [1, 1.1, 1],
-                            }}
-                            transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                            className="absolute -top-10 -right-10 opacity-10"
-                        >
-                            <Snowflake className="w-40 h-40 text-cyan-200" />
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            <div className="flex justify-between items-start mb-6 relative z-10">
-                <div className="space-y-1">
-                    <h3 className="text-lg font-black text-white tracking-widest uppercase flex items-center gap-2">
+            {/* Header */}
+            <div className="flex items-start justify-between mb-4">
+                <div>
+                    <h3 className="text-body font-semibold text-text-primary flex items-center gap-2">
                         {deviceId}
-                        {coolingActive && (
-                            <motion.span
-                                animate={{ rotate: 360 }}
-                                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                            >
-                                <Fan className="w-3 h-3 text-cyan-400" />
-                            </motion.span>
-                        )}
+                        {coolingActive && <Fan className="w-3 h-3 text-cyan animate-spin" />}
                     </h3>
-                    <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
-                        <p className="text-[10px] text-gray-500 font-mono tracking-tighter uppercase">{lastUpdate}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                        <span className={cn(
+                            "status-dot",
+                            isOnline ? "status-dot-online" : "status-dot-offline"
+                        )} />
+                        <span className="text-caption text-text-tertiary font-mono">{lastUpdate}</span>
                     </div>
                 </div>
-
-                <div className={clsx(
-                    "px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase border transition-colors",
-                    isOnline ? "bg-green-500/10 text-green-400 border-green-500/20" : "bg-red-500/10 text-red-400 border-red-500/20"
-                )}>
+                <span className={cn("badge", statusClass)}>
                     {status}
-                </div>
+                </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-6 relative z-10 mb-8">
+            {/* Metrics Grid */}
+            <div className="grid grid-cols-2 gap-4 mb-4">
+                {/* Temperature */}
                 <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-gray-500 text-[10px] uppercase font-bold tracking-widest">
-                        <Thermometer className={clsx("w-3.5 h-3.5", coolingActive ? "text-cyan-400" : "text-primary")} />
-                        Temp
+                    <div className="flex items-center gap-1.5 text-text-tertiary">
+                        <Thermometer className="w-3.5 h-3.5" />
+                        <span className="label-uppercase">Temp</span>
                     </div>
-                    <motion.p
-                        key={temperature}
-                        initial={{ scale: 1.1 }}
-                        animate={{ scale: 1 }}
-                        className={clsx("text-3xl font-black font-mono tracking-tighter transition-colors", coolingActive && "text-cyan-400")}
-                    >
-                        {temperature}<span className="text-sm opacity-50">°C</span>
-                    </motion.p>
-                </div>
-                <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-gray-500 text-[10px] uppercase font-bold tracking-widest">
-                        <Droplets className="w-3.5 h-3.5 text-secondary" />
-                        Humid
-                    </div>
-                    <p className="text-3xl font-black font-mono tracking-tighter">
-                        {humidity}<span className="text-sm opacity-50">%</span>
+                    <p className={cn(
+                        "text-h2 font-mono font-bold",
+                        coolingActive ? "text-cyan" : "text-text-primary"
+                    )}>
+                        {temperature.toFixed(1)}<span className="text-body-sm text-text-tertiary">°C</span>
                     </p>
                 </div>
+
+                {/* Humidity */}
+                <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 text-text-tertiary">
+                        <Droplets className="w-3.5 h-3.5" />
+                        <span className="label-uppercase">Humidity</span>
+                    </div>
+                    <p className="text-h2 font-mono font-bold text-text-primary">
+                        {humidity.toFixed(0)}<span className="text-body-sm text-text-tertiary">%</span>
+                    </p>
+                </div>
+
+                {/* CPU (if available) */}
+                {cpuLoad !== undefined && (
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-1.5 text-text-tertiary">
+                            <Cpu className="w-3.5 h-3.5" />
+                            <span className="label-uppercase">CPU</span>
+                        </div>
+                        <p className="text-h2 font-mono font-bold text-text-primary">
+                            {cpuLoad.toFixed(0)}<span className="text-body-sm text-text-tertiary">%</span>
+                        </p>
+                    </div>
+                )}
+
+                {/* Battery (if available) */}
+                {batteryLevel !== undefined && (
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-1.5 text-text-tertiary">
+                            <BatteryMedium className="w-3.5 h-3.5" />
+                            <span className="label-uppercase">Battery</span>
+                        </div>
+                        <p className="text-h2 font-mono font-bold text-text-primary">
+                            {batteryLevel.toFixed(0)}<span className="text-body-sm text-text-tertiary">%</span>
+                        </p>
+                    </div>
+                )}
             </div>
 
             {/* Action Area */}
-            <div className="relative z-10 space-y-4">
-                <button
-                    disabled={!isOnline || isCommanding}
-                    onClick={toggleCooling}
-                    className={clsx(
-                        "w-full group/btn relative py-3 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all overflow-hidden border",
-                        coolingActive
-                            ? "bg-cyan-500 text-black border-cyan-400 active:scale-95"
-                            : "bg-white/5 text-gray-400 border-white/5 hover:border-cyan-500/40 hover:text-cyan-400 active:scale-95"
-                    )}
-                >
-                    <div className="relative z-10 flex items-center justify-center gap-3">
-                        <motion.div
-                            animate={coolingActive ? { rotate: 360 } : {}}
-                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                        >
-                            <Fan className="w-4 h-4" />
-                        </motion.div>
-                        {isCommanding ? 'Establishing Link...' : coolingActive ? 'Active Cooling' : 'Initialize Fan'}
-                    </div>
-                    {/* Hover Glow */}
-                    {!coolingActive && <div className="absolute inset-0 bg-cyan-500/0 group-hover/btn:bg-cyan-500/5 transition-colors" />}
-                </button>
-
-                {hasAlert && !coolingActive && (
-                    <motion.div
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3"
+            <div className="space-y-3">
+                {/* Cooling Toggle */}
+                {onToggleCooling && (
+                    <button
+                        disabled={!isOnline}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onToggleCooling();
+                        }}
+                        className={cn(
+                            "w-full h-9 rounded-md font-medium text-body-sm flex items-center justify-center gap-2 transition-all",
+                            coolingActive
+                                ? "btn-primary"
+                                : "btn-secondary"
+                        )}
                     >
-                        <AlertTriangle className="w-4 h-4 text-red-500" />
-                        <span className="text-[10px] font-black text-red-400 uppercase tracking-widest">{alert}</span>
-                    </motion.div>
+                        <Fan className="w-4 h-4" />
+                        {coolingActive ? 'Cooling Active' : 'Activate Cooling'}
+                    </button>
+                )}
+
+                {/* Alert Banner */}
+                {hasAlert && (
+                    <div className="flex items-center gap-2 p-2 rounded-md bg-error-soft border border-error/20">
+                        <AlertTriangle className="w-4 h-4 text-error flex-shrink-0" />
+                        <span className="text-caption font-medium text-error truncate">{alert}</span>
+                    </div>
                 )}
             </div>
-        </motion.div>
+        </div>
     );
 };

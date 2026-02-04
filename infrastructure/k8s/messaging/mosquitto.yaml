@@ -1,0 +1,80 @@
+# Mosquitto MQTT Broker
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mosquitto
+  namespace: iot-monitoring
+  labels:
+    app: mosquitto
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mosquitto
+  template:
+    metadata:
+      labels:
+        app: mosquitto
+    spec:
+      containers:
+      - name: mosquitto
+        image: eclipse-mosquitto:latest
+        ports:
+        - containerPort: 1883
+          name: mqtt
+        - containerPort: 9001
+          name: websocket
+        volumeMounts:
+        - name: mosquitto-config
+          mountPath: /mosquitto/config
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+      volumes:
+      - name: mosquitto-config
+        configMap:
+          name: mosquitto-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mosquitto
+  namespace: iot-monitoring
+spec:
+  selector:
+    app: mosquitto
+  ports:
+  - port: 1883
+    targetPort: 1883
+    name: mqtt
+  - port: 9001
+    targetPort: 9001
+    name: websocket
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mosquitto-config
+  namespace: iot-monitoring
+data:
+  mosquitto.conf: |
+    listener 1883
+    allow_anonymous true
+    listener 9001
+    protocol websockets
+
+    # RabbitMQ Bridge Configuration
+    connection rabbitmq-bridge
+    address rabbitmq:1883
+    topic # out 0
+    topic # in 0
+    remote_username guest
+    remote_password guest
+    try_private false
+    notifications false
+    bridge_protocol_version mqttv311

@@ -1,52 +1,64 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import type { User, AuthState } from '../types/auth';
 
-interface User {
-    email: string;
-    is_admin: boolean;
-}
-
-interface AuthContextType {
-    user: User | null;
-    token: string | null;
+interface AuthContextType extends AuthState {
     login: (token: string, user: User) => void;
     logout: () => void;
-    isAuthenticated: boolean;
     isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [user, setUser] = useState<User | null>(null);
-    const [token, setToken] = useState<string | null>(null);
+    const [state, setState] = useState<AuthState>({
+        user: null,
+        token: null,
+        isAuthenticated: false,
+    });
     const [isLoading, setIsLoading] = useState(true);
 
-    useEffect(() => {
-        const savedToken = localStorage.getItem('auth_token');
-        const savedUser = localStorage.getItem('auth_user');
-        if (savedToken && savedUser) {
-            setToken(savedToken);
-            setUser(JSON.parse(savedUser));
-        }
-        setIsLoading(false);
-    }, []);
-
-    const login = (newToken: string, newUser: User) => {
-        setToken(newToken);
-        setUser(newUser);
-        localStorage.setItem('auth_token', newToken);
-        localStorage.setItem('auth_user', JSON.stringify(newUser));
-    };
-
-    const logout = () => {
-        setToken(null);
-        setUser(null);
+    const logout = useCallback(() => {
         localStorage.removeItem('auth_token');
         localStorage.removeItem('auth_user');
+        setState({ user: null, token: null, isAuthenticated: false });
+    }, []);
+
+    useEffect(() => {
+        const initAuth = () => {
+            try {
+                const savedToken = localStorage.getItem('auth_token');
+                const savedUser = localStorage.getItem('auth_user');
+
+                if (savedToken && savedUser) {
+                    setState({
+                        token: savedToken,
+                        user: JSON.parse(savedUser),
+                        isAuthenticated: true,
+                    });
+                }
+            } catch (err) {
+                console.error("Failed to rehydrate auth state:", err);
+                logout();
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        initAuth();
+    }, [logout]);
+
+    const login = (newToken: string, newUser: User) => {
+        localStorage.setItem('auth_token', newToken);
+        localStorage.setItem('auth_user', JSON.stringify(newUser));
+        setState({
+            token: newToken,
+            user: newUser,
+            isAuthenticated: true,
+        });
     };
 
     return (
-        <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated: !!token, isLoading }}>
+        <AuthContext.Provider value={{ ...state, login, logout, isLoading }}>
             {children}
         </AuthContext.Provider>
     );
